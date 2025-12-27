@@ -1,5 +1,5 @@
 const axios = require('axios');
-const logger = require('./logger');
+const logger = require('./utils/logger');  // Fixed path: logger is inside /utils folder
 
 class GHLClient {
   constructor() {
@@ -21,11 +21,9 @@ class GHLClient {
         url: `${this.baseURL}${endpoint}`,
         headers: this.headers
       };
-
       if (data) {
         config.data = data;
       }
-
       const response = await axios(config);
       return response.data;
     } catch (error) {
@@ -35,13 +33,11 @@ class GHLClient {
         status: error.response?.status,
         retries
       });
-
       if (retries < this.maxRetries) {
         logger.info(`Retrying... Attempt ${retries + 1}/${this.maxRetries}`);
         await this.sleep(this.retryDelay);
         return this.makeRequest(method, endpoint, data, retries + 1);
       }
-
       throw error;
     }
   }

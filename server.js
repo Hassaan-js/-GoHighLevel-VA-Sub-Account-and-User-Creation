@@ -1,7 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const opportunityHandler = require('./webhooks/opportunityHandler');
+// Fixed path: opportunityHandler.js is in root, not in /webhooks
+const opportunityHandler = require('./opportunityHandler');
 const logger = require('./utils/logger');
 const fs = require('fs');
 
@@ -19,8 +20,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
@@ -29,7 +30,7 @@ app.get('/health', (req, res) => {
 // Main webhook endpoint
 app.post('/webhook/ghl-opportunity-stage', async (req, res) => {
   const webhookData = req.body;
-  
+
   logger.info('Webhook received', {
     type: webhookData.type,
     opportunityId: webhookData.id,
@@ -38,14 +39,14 @@ app.post('/webhook/ghl-opportunity-stage', async (req, res) => {
 
   try {
     // Respond immediately to GHL
-    res.status(200).json({ 
-      received: true, 
-      timestamp: new Date().toISOString() 
+    res.status(200).json({
+      received: true,
+      timestamp: new Date().toISOString()
     });
 
     // Process asynchronously
     const result = await opportunityHandler.handleStageChange(webhookData);
-    
+
     if (result.skipped) {
       logger.info('Webhook processed - skipped (wrong stage)');
     } else {
@@ -54,7 +55,6 @@ app.post('/webhook/ghl-opportunity-stage', async (req, res) => {
         duration: result.duration
       });
     }
-
   } catch (error) {
     logger.error('Webhook processing failed', {
       error: error.message,
@@ -72,8 +72,8 @@ app.use((err, req, res, next) => {
     url: req.url,
     method: req.method
   });
-  
-  res.status(500).json({ 
+
+  res.status(500).json({
     error: 'Internal server error',
     timestamp: new Date().toISOString()
   });
@@ -81,9 +81,9 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Endpoint not found',
-    path: req.path 
+    path: req.path
   });
 });
 
@@ -98,7 +98,6 @@ process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
-
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
   process.exit(0);

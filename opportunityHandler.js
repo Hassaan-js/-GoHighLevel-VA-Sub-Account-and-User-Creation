@@ -1,5 +1,5 @@
-const ghlClient = require('../utils/ghlClient');
-const logger = require('../utils/logger');
+const ghlClient = require('./ghlClient');
+const logger = require('./utils/logger');
 
 class OpportunityHandler {
   async handleStageChange(webhookData) {

@@ -1,18 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-// Fixed path: opportunityHandler.js is in root, not in /webhooks
 const opportunityHandler = require('./opportunityHandler');
 const logger = require('./utils/logger');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Create logs directory if it doesn't exist
-if (!fs.existsSync('logs')) {
-  fs.mkdirSync('logs');
-}
 
 // Middleware
 app.use(bodyParser.json());
@@ -20,46 +13,35 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
+  res.json({ 
+    status: 'healthy', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
 });
 
 // Main webhook endpoint
-app.post('/webhook/ghl-opportunity-stage', async (req, res) => {
+app.post('/webhook/ghl-workflow', async (req, res) => {
   const webhookData = req.body;
-
-  logger.info('Webhook received', {
-    type: webhookData.type,
-    opportunityId: webhookData.id,
-    stage: webhookData.pipeline_stage
+  
+  logger.info('Webhook received from GHL workflow', {
+    opportunityId: webhookData.opportunityId,
+    contactEmail: webhookData.contactEmail
   });
 
   try {
-    // Respond immediately to GHL
-    res.status(200).json({
-      received: true,
-      timestamp: new Date().toISOString()
-    });
-
-    // Process asynchronously
     const result = await opportunityHandler.handleStageChange(webhookData);
-
-    if (result.skipped) {
-      logger.info('Webhook processed - skipped (wrong stage)');
-    } else {
-      logger.info('Webhook processed successfully', {
-        subAccountId: result.subAccountId,
-        duration: result.duration
-      });
-    }
+    res.status(200).json(result);
   } catch (error) {
     logger.error('Webhook processing failed', {
       error: error.message,
-      stack: error.stack,
-      webhookData
+      stack: error.stack
+    });
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -68,12 +50,11 @@ app.post('/webhook/ghl-opportunity-stage', async (req, res) => {
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', {
     error: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method
+    stack: err.stack
   });
-
-  res.status(500).json({
+  
+  res.status(500).json({ 
+    success: false,
     error: 'Internal server error',
     timestamp: new Date().toISOString()
   });
@@ -81,9 +62,10 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({
+  res.status(404).json({ 
+    success: false,
     error: 'Endpoint not found',
-    path: req.path
+    path: req.path 
   });
 });
 
@@ -91,6 +73,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   logger.info(`Server started on port ${PORT}`);
   logger.info('Environment:', process.env.NODE_ENV);
+  logger.info('Ready to receive GHL workflow webhooks');
 });
 
 // Graceful shutdown
@@ -98,6 +81,7 @@ process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
+
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
   process.exit(0);

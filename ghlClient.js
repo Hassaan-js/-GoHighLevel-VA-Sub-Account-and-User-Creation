@@ -1,5 +1,5 @@
 const axios = require('axios');
-const logger = require('./utils/logger');  // Fixed path: logger is inside /utils folder
+const logger = require('./utils/logger');
 
 class GHLClient {
   constructor() {
@@ -10,8 +10,8 @@ class GHLClient {
       'Version': '2021-07-28',
       'Content-Type': 'application/json'
     };
-    this.maxRetries = parseInt(process.env.MAX_RETRIES) || 3;
-    this.retryDelay = parseInt(process.env.RETRY_DELAY) || 3000;
+    this.maxRetries = 3;
+    this.retryDelay = 3000;
   }
 
   async makeRequest(method, endpoint, data = null, retries = 0) {
@@ -21,9 +21,11 @@ class GHLClient {
         url: `${this.baseURL}${endpoint}`,
         headers: this.headers
       };
+
       if (data) {
         config.data = data;
       }
+
       const response = await axios(config);
       return response.data;
     } catch (error) {
@@ -33,11 +35,13 @@ class GHLClient {
         status: error.response?.status,
         retries
       });
+
       if (retries < this.maxRetries) {
         logger.info(`Retrying... Attempt ${retries + 1}/${this.maxRetries}`);
         await this.sleep(this.retryDelay);
         return this.makeRequest(method, endpoint, data, retries + 1);
       }
+
       throw error;
     }
   }
@@ -46,40 +50,19 @@ class GHLClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async getContact(contactId) {
-    logger.info(`Fetching contact: ${contactId}`);
-    return await this.makeRequest('GET', `/contacts/${contactId}`);
-  }
-
   async createSubAccount(data) {
     logger.info('Creating sub-account', { email: data.email });
     return await this.makeRequest('POST', '/locations/', data);
   }
 
-  async updateOpportunity(opportunityId, data) {
-    logger.info(`Updating opportunity: ${opportunityId}`);
-    return await this.makeRequest('PUT', `/opportunities/${opportunityId}`, data);
-  }
-
-  async addNote(opportunityId, noteBody) {
-    logger.info(`Adding note to opportunity: ${opportunityId}`);
-    return await this.makeRequest('POST', `/opportunities/${opportunityId}/notes`, {
-      body: noteBody
+  // ✅ FIXED: Create user ON the location (location-scoped)
+  async createUserOnLocation(locationId, userData) {
+    logger.info('Creating user on location', { 
+      email: userData.email,
+      locationId: locationId
     });
-  }
-
-  async updateContactCustomFields(contactId, customFields) {
-    logger.info(`Updating contact custom fields: ${contactId}`);
-    return await this.makeRequest('PUT', `/contacts/${contactId}`, {
-      customFields
-    });
-  }
-
-  async addTagToContact(contactId, tag) {
-    logger.info(`Adding tag to contact: ${contactId}`, { tag });
-    return await this.makeRequest('POST', `/contacts/${contactId}/tags`, {
-      tags: [tag]
-    });
+    // THIS IS THE FIX: /locations/{locationId}/users
+    return await this.makeRequest('POST', `/locations/${locationId}/users`, userData);
   }
 }
 
